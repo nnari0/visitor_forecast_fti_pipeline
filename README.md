@@ -205,3 +205,68 @@ cp .env.example .env
 # 1) Feature Pipeline – ingest historical data into the feature store
 uv run -m pipelines.feature_pipeline
 
+# 2) Training Pipeline – train the model and register it in MLflow
+uv run -m pipelines.training_pipeline
+
+# 3) Inference Pipeline – forecast the next few hours
+uv run -m pipelines.inference_pipeline
+```
+
+### View MLflow runs (optional)
+```bash
+mlflow ui --backend-store-uri ./mlruns
+# Browser: http://127.0.0.1:5000
+```
+
+---
+
+## 7. Reflection and Limitations
+
+The solution is intentionally minimal and has a few known shortcomings:
+
+1. **Aggregated features are not recomputed live at inference time.**
+   The inference pipeline reads the most recent value of
+   `visitors_avg_24h` / `visitors_avg_7d` from the feature group and uses
+   it as a stand-in for "now". A production pipeline would either
+   re-aggregate the last 7 days of raw visitor data on demand or use an
+   online feature group with continuously updated aggregates. For this
+   assignment, this simplification is explicitly permitted.
+
+2. **No real live visitor data**: the CSV is a historical crawl; the
+   pipeline simulates "current" aggregates via the latest stored data
+   point. A production version would need to integrate the crawler into
+   the feature pipeline and trigger it hourly (e.g. via GitHub Actions).
+
+3. **Weather gaps are filled with `ffill`/`bfill`.** This is robust for
+   isolated missing hours but not ideal for longer outages. A production
+   system would benefit from data validation using Great Expectations
+   (which is integrated into Hopsworks — see "extension stages" in the
+   assignment).
+
+4. **No hyperparameter tuning.** The RandomForest uses pragmatically
+   chosen values; neither cross-validation nor grid search are
+   implemented. This is consistent with the assignment ("performance is
+   not a grading criterion").
+
+5. **Gaps in the source CSV**: the original CSV contains visible periods
+   where no observations exist for hours or days. Those hours simply do
+   not appear in the final training set — they don't distort the
+   aggregates because the rolling windows use a `min_periods` parameter.
+
+6. **The chronological test set covers only ~3.5 months (Jan–Apr 2026).**
+   Seasonal effects (e.g. summer operations) are therefore not represented
+   in the test split.
+
+7. **No containerization, no online serving.** Extension stages such as
+   Docker, Hopsworks model deployment, or a web service were intentionally
+   left out.
+
+---
+
+## 8. References
+
+- Open-Meteo Historical Weather API – <https://open-meteo.com/en/docs/historical-weather-api>
+- Open-Meteo Forecast API – <https://open-meteo.com/en/docs>
+- Hopsworks Feature Store user guide – <https://docs.hopsworks.ai/latest/user_guides/fs/>
+- Hopsworks Python SDK – <https://docs.hopsworks.ai/hopsworks-api/latest/>
+- MLflow Tracking – <https://mlflow.org/docs/latest/tracking.html>
