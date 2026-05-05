@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import joblib
 import mlflow
-import numpy as np
-import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 
@@ -66,40 +64,23 @@ def get_feature_view(fs):
     return fv
 
 
-def load_training_data(fs) -> pd.DataFrame:
-    """Loads features + label + event_time from the feature group."""
-    print("Loading training dataset from feature group...")
-    fg = fs.get_feature_group(FG_NAME, version=FG_VERSION)
-    df = fg.read()
-    print(f"  {len(df)} rows loaded")
-    return df
-
-
-def chronological_split(df: pd.DataFrame, split_date: str):
-    """Chronological split — important for time series, no shuffle."""
-    df = df.sort_values("event_time").reset_index(drop=True)
-    cutoff = pd.Timestamp(split_date, tz="UTC")
-    train = df[df["event_time"] < cutoff]
-    test = df[df["event_time"] >= cutoff]
-    print(f"  Train: {len(train)} rows (up to {split_date})")
-    print(f"  Test:  {len(test)} rows (from {split_date})")
-    return train, test
-
-
 def main() -> None:
     project = login_to_hopsworks()
     fs = project.get_feature_store()
 
-    # Materialize the feature view so it exists for downstream consumers
-    # (inference pipeline, lineage), then load training data from the FG —
-    # fv.get_batch_data() strips the label column, which we need here.
-    get_feature_view(fs)
-    df = load_training_data(fs)
+    fv = get_feature_view(fs)
 
-    train_df, test_df = chronological_split(df, TRAIN_TEST_SPLIT_DATE)
-
-    X_train, y_train = train_df[FEATURE_COLUMNS], train_df[LABEL_COLUMN]
-    X_test, y_test = test_df[FEATURE_COLUMNS], test_df[LABEL_COLUMN]
+    # Chronological split via the feature view — Hopsworks materializes a
+    # versioned training dataset and tracks lineage against the model.
+    print(f"Creating chronological train/test split at {TRAIN_TEST_SPLIT_DATE}...")
+    X_train, X_test, y_train, y_test = fv.train_test_split(
+        train_end=TRAIN_TEST_SPLIT_DATE,
+        test_start=TRAIN_TEST_SPLIT_DATE,
+        description=f"Chronological split, cutoff={TRAIN_TEST_SPLIT_DATE}",
+    )
+    X_train, X_test = X_train[FEATURE_COLUMNS], X_test[FEATURE_COLUMNS]
+    print(f"  Train: {len(X_train)} rows (event_time < {TRAIN_TEST_SPLIT_DATE})")
+    print(f"  Test:  {len(X_test)} rows (event_time >= {TRAIN_TEST_SPLIT_DATE})")
 
     # MLflow setup
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
