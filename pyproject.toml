@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "hopsworks>=4.8.1",
+    "hopsworks[python]>=4.8.1",
     "joblib>=1.3.0",
     "mlflow>=3.0.0",
     "numpy>=1.24.0",
