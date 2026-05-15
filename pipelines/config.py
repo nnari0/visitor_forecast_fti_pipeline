@@ -40,16 +40,16 @@ WEATHER_VARS = [
 # Hopsworks Feature Store: naming
 # ---------------------------------------------------------------------------
 FG_NAME = "wellnesspark_features"
-FG_VERSION = 1
+FG_VERSION = 2
 FG_DESCRIPTION = (
-    "Hourly aggregated visitor counts for a wellness/fitness park in Lucerne, "
+    "15-minute aggregated visitor counts for a wellness/fitness park in Lucerne, "
     "joined with weather data and derived aggregated features."
 )
 FG_PRIMARY_KEY = ["event_time"]
 FG_EVENT_TIME = "event_time"
 
 FV_NAME = "wellnesspark_view"
-FV_VERSION = 1
+FV_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # MLflow / model
@@ -66,8 +66,24 @@ MODEL_LOCAL_PATH = MODELS_DIR / "model.joblib"
 # Test:  everything from this date onwards (chronological split — important for time series!)
 TRAIN_TEST_SPLIT_DATE = "2026-01-01"
 
-# Data quality threshold: hourly values above this are treated as outliers
+# Data quality threshold: per-bucket values above this are treated as outliers
 VISITORS_MAX_PLAUSIBLE = 1000
 
-# Forecast horizon (hours into the future)
-FORECAST_HORIZON_HOURS = 2
+# ---------------------------------------------------------------------------
+# Time resolution
+# ---------------------------------------------------------------------------
+SAMPLE_FREQ = "15min"
+STEPS_PER_HOUR = 4
+ROLLING_24H = 24 * STEPS_PER_HOUR        # 96
+ROLLING_7D = 24 * 7 * STEPS_PER_HOUR     # 672
+
+# Forecast horizon expressed as SAMPLE_FREQ steps (12 * 15 min = 3 h)
+FORECAST_HORIZON_STEPS = 12
+
+# ---------------------------------------------------------------------------
+# Operating hours (local time, Europe/Zurich)
+# The fitness park is closed at night. Raw observations outside this window
+# are filtered out, and the inference horizon skips closed steps.
+# ---------------------------------------------------------------------------
+OPEN_HOUR = 7        # inclusive
+CLOSE_HOUR = 23      # exclusive
