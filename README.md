@@ -168,7 +168,7 @@ split on time-series data would introduce leakage.
               ┌──────────────────────┐
               │  Inference Pipeline  │
               │  - Load model        │
-              │  - Aggregates from FS│
+              │  - Aggregates via FV │
               │  - Weather forecast  │
               │  - Predict           │
               └──────────────────────┘
@@ -196,7 +196,8 @@ split on time-series data would introduce leakage.
 
 ### Inference Pipeline (`pipelines/inference_pipeline.py`)
 1. Load model from the MLflow registry (fallback: local joblib)
-2. Read the latest aggregated features from the feature store
+2. Read the latest aggregated features from the feature view
+   (`wellnesspark_view` v2)
 3. Pull a live weather forecast for the next hours via Open-Meteo
 4. Build feature vectors for the next 12 × 15-min steps (= 3 h), skipping
    any step that falls into the closure window (23:00–07:00 local), then
@@ -220,7 +221,9 @@ split on time-series data would introduce leakage.
 │   └── crawled_content.csv      # historical visitor data
 ├── models/                      # local model artifacts
 ├── mlruns/                      # MLflow tracking
-├── requirements.txt
+├── pyproject.toml               # project metadata + dependencies
+├── uv.lock                      # pinned dependency versions (uv)
+├── .python-version              # Python version pin for uv (3.12)
 ├── .env.example                 # template for API keys
 ├── .gitignore
 └── README.md

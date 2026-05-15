@@ -26,9 +26,9 @@ import pandas as pd
 
 from pipelines.config import (
     CLOSE_HOUR,
-    FG_NAME,
-    FG_VERSION,
     FORECAST_HORIZON_STEPS,
+    FV_NAME,
+    FV_VERSION,
     MLFLOW_TRACKING_URI,
     MODEL_LOCAL_PATH,
     MODEL_NAME,
@@ -87,18 +87,17 @@ def load_model():
 # ---------------------------------------------------------------------------
 def get_latest_aggregated_features(fs) -> dict:
     """
-    Fetches the latest stored visitors_avg_24h / visitors_avg_7d from the
-    feature group as an approximation of "now". A real live pipeline would
-    poll the past 7 days of visitor data and re-aggregate it on the fly —
-    that is out of scope for this project.
+    Fetches the latest stored visitors_avg_24h / visitors_avg_7d via the
+    feature view (created by the training pipeline) as an approximation
+    of "now". A real live pipeline would poll the past 7 days of visitor
+    data and re-aggregate it on the fly — that is out of scope here.
     """
-    fg = fs.get_feature_group(FG_NAME, version=FG_VERSION)
-    df = fg.read()
+    fv = fs.get_feature_view(name=FV_NAME, version=FV_VERSION)
+    df = fv.get_batch_data()
     df = df.sort_values("event_time")
     last = df.iloc[-1]
-    print(f"  Latest data point: {last['event_time']} "
-          f"(visitors={last['visitors']}, "
-          f"avg24h={last['visitors_avg_24h']:.1f}, "
+    print(f"  Latest feature row: {last['event_time']} "
+          f"(avg24h={last['visitors_avg_24h']:.1f}, "
           f"avg7d={last['visitors_avg_7d']:.1f})")
     return {
         "visitors_avg_24h": float(last["visitors_avg_24h"]),
