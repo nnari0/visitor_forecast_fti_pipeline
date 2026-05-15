@@ -33,6 +33,7 @@ from pipelines.config import (
     MLFLOW_TRACKING_URI,
     MODEL_LOCAL_PATH,
     MODEL_NAME,
+    TIMEZONE,
 )
 from pipelines.hopsworks_client import login_to_hopsworks
 from pipelines.weather_api import fetch_weather_forecast
@@ -160,11 +161,17 @@ def main() -> None:
     preds = model.predict(fvecs[feature_cols])
     fvecs["predicted_visitors"] = np.round(preds).astype(int)
 
-    print("\n=== Visitor count forecast — Wellnesspark Lucerne ===")
-    print(fvecs[[
+    print(f"\n=== Visitor count forecast — Wellnesspark Lucerne ({TIMEZONE}) ===")
+    display = fvecs[[
         "event_time", "predicted_visitors",
         "temperature_2m", "precipitation", "cloud_cover"
-    ]].to_string(index=False))
+    ]].copy()
+    display["event_time"] = (
+        pd.to_datetime(display["event_time"], utc=True)
+        .dt.tz_convert(TIMEZONE)
+        .dt.strftime("%Y-%m-%d %H:%M %Z")
+    )
+    print(display.to_string(index=False))
 
 
 if __name__ == "__main__":
