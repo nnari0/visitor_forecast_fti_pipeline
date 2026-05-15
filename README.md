@@ -67,7 +67,7 @@ this includes following feature types :
 - `min_samples_leaf = 5`
 - `random_state = 42`
 
-Deliberately kept small — the goal of the assignment is a clean FTI
+Deliberately kept small — the goal is a clean FTI
 pipeline, not predictive accuracy. Train and test sets are split
 **chronologically** (train: everything before 2026-01-01, test: from
 2026-01-01 onwards), because a random split on time-series data would
@@ -229,24 +229,20 @@ The solution is intentionally minimal and has a few known shortcomings:
    `visitors_avg_24h` / `visitors_avg_7d` from the feature group and uses
    it as a stand-in for "now". A production pipeline would either
    re-aggregate the last 7 days of raw visitor data on demand or use an
-   online feature group with continuously updated aggregates. For this
-   assignment, this simplification is explicitly permitted.
+   online feature group with continuously updated aggregates.
 
 2. **No real live visitor data**: the CSV is a historical crawl; the
    pipeline simulates "current" aggregates via the latest stored data
    point. A production version would need to integrate the crawler into
-   the feature pipeline and trigger it hourly (e.g. via GitHub Actions).
+   the feature pipeline and trigger it hourly.
 
 3. **Weather gaps are filled with `ffill`/`bfill`.** This is robust for
    isolated missing hours but not ideal for longer outages. A production
-   system would benefit from data validation using Great Expectations
-   (which is integrated into Hopsworks — see "extension stages" in the
-   assignment).
+   system would benefit from data validation using Great Expectations.
 
 4. **No hyperparameter tuning.** The RandomForest uses pragmatically
    chosen values; neither cross-validation nor grid search are
-   implemented. This is consistent with the assignment ("performance is
-   not a grading criterion").
+   implemented.
 
 5. **Gaps in the source CSV**: the original CSV contains visible periods
    where no observations exist for hours or days. Those hours simply do
