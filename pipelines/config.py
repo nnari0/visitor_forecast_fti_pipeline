@@ -56,7 +56,7 @@ FV_VERSION = 2
 # ---------------------------------------------------------------------------
 MLFLOW_TRACKING_URI = f"file:{(PROJECT_ROOT / 'mlruns').as_posix()}"
 MLFLOW_EXPERIMENT_NAME = "wellnesspark_visitor_forecast"
-MODEL_NAME = "wellnesspark_visitor_rf"
+MODEL_NAME = "wellnesspark_visitor_xgb"
 MODEL_LOCAL_PATH = MODELS_DIR / "model.joblib"
 
 # ---------------------------------------------------------------------------

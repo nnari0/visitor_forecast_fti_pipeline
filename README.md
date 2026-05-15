@@ -96,18 +96,33 @@ model never trains on synthetic targets.
 
 ## 3. Model
 
-`sklearn.ensemble.RandomForestRegressor` configured with:
+`xgboost.XGBRegressor` (gradient-boosted trees) tuned via
+`sklearn.model_selection.RandomizedSearchCV`.
 
-- `n_estimators = 200`
-- `max_depth = 12`
-- `min_samples_leaf = 5`
-- `random_state = 42`
+The search runs **25 candidates × 3 folds** of `TimeSeriesSplit` with a
+**7-day gap** (= 672 × 15-min steps) between train and validation in
+each fold. The gap purges any overlap between the 7-day rolling features
+of a validation row and the training fold — without it, the search
+would silently leak label information through the rolling means.
 
-Deliberately kept small — the goal is a clean FTI
-pipeline, not predictive accuracy. Train and test sets are split
-**chronologically** (train: everything before 2026-01-01, test: from
-2026-01-01 onwards), because a random split on time-series data would
-introduce leakage.
+Search space:
+
+| Hyperparameter | Distribution |
+|---|---|
+| `n_estimators` | `randint(200, 1000)` |
+| `max_depth` | `randint(3, 12)` |
+| `learning_rate` | `loguniform(0.01, 0.3)` |
+| `subsample` | `uniform(0.6, 1.0)` |
+| `colsample_bytree` | `uniform(0.6, 1.0)` |
+| `min_child_weight` | `randint(1, 10)` |
+| `reg_alpha`, `reg_lambda`, `gamma` | `loguniform(1e-3, 1.0)` |
+
+Scoring: `neg_mean_absolute_error`. The best estimator is refit on the
+full training set and evaluated on the held-out test set.
+
+Train and test sets are split **chronologically** (train: everything
+before 2026-01-01, test: from 2026-01-01 onwards), because a random
+split on time-series data would introduce leakage.
 
 ---
 
@@ -141,7 +156,7 @@ introduce leakage.
               │  Training Pipeline   │
               │  - Load Feature View │
               │  - Chrono. split     │
-              │  - RandomForest      │
+              │  - XGBoost + tuning  │
               └──────────┬───────────┘
                          ▼
               ┌──────────────────────┐
@@ -174,8 +189,10 @@ introduce leakage.
 2. Create / load the feature view `wellnesspark_view` (v2)
 3. Read training data from the feature view
 4. Chronological train/test split
-5. Train RandomForest, compute metrics (MAE, RMSE, R²)
-6. Log model to MLflow + persist locally as joblib
+5. Tune XGBoost with `RandomizedSearchCV` over a `TimeSeriesSplit`
+   (with a 7-day gap to prevent rolling-window leakage), refit on the
+   full training set, compute metrics (MAE, RMSE, R²)
+6. Log model + best hyperparameters to MLflow + persist locally as joblib
 
 ### Inference Pipeline (`pipelines/inference_pipeline.py`)
 1. Load model from the MLflow registry (fallback: local joblib)
@@ -283,9 +300,10 @@ The solution is intentionally minimal and has a few known shortcomings:
    production system would benefit from data validation using Great
    Expectations.
 
-4. **No hyperparameter tuning.** The RandomForest uses pragmatically
-   chosen values; neither cross-validation nor grid search are
-   implemented.
+4. **Limited hyperparameter search.** `RandomizedSearchCV` with 25
+   candidates and a 3-fold time-series CV is run, which is enough for a
+   reasonable baseline but not exhaustive. A larger budget (Optuna with
+   pruning, or `HyperbandSearchCV`) could squeeze out further accuracy.
 
 5. **Gaps in the source CSV**: the original CSV contains visible periods
    where no observations exist for hours or days. Those 15-minute buckets

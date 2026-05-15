@@ -19,9 +19,6 @@ Run with:
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
 import joblib
 import mlflow
 import numpy as np
@@ -32,7 +29,6 @@ from pipelines.config import (
     FG_NAME,
     FG_VERSION,
     FORECAST_HORIZON_STEPS,
-    MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACKING_URI,
     MODEL_LOCAL_PATH,
     MODEL_NAME,
@@ -77,7 +73,8 @@ def load_model():
         latest = max(versions, key=lambda v: int(v.version))
         model_uri = f"models:/{MODEL_NAME}/{latest.version}"
         print(f"Loading model from MLflow: {model_uri}")
-        model = mlflow.sklearn.load_model(model_uri)
+        # pyfunc loads any registered model flavor (sklearn, xgboost, ...).
+        model = mlflow.pyfunc.load_model(model_uri)
         return model, FEATURE_COLUMNS
     except Exception as exc:
         print(f"  MLflow load failed ({exc}). Falling back to joblib.")
@@ -152,7 +149,12 @@ def build_feature_vectors(weather_fc: pd.DataFrame, agg: dict) -> pd.DataFrame:
             "cloud_cover": float(wx_row["cloud_cover"]),
             "relative_humidity_2m": float(wx_row["relative_humidity_2m"]),
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    # Match the dtypes the training pipeline used so the MLflow model
+    # signature accepts the input without lossy-cast errors.
+    for col in ("hour", "day_of_week", "month", "is_weekend"):
+        df[col] = df[col].astype("int32")
+    return df
 
 
 # ---------------------------------------------------------------------------
